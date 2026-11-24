@@ -34,7 +34,7 @@ test.group('Game services and serializers', () => {
       mistakesCount: 2,
       hintsUsed: 1,
     })
-    assert.equal(easyScore, 1000 - 100 - 50 - 75)
+    assert.equal(easyScore, 1000 + 70 * 3 - 2 * 25 - 150)
 
     const hardScore = assistance.calculateScore({
       difficulty: 'hard',
@@ -42,7 +42,7 @@ test.group('Game services and serializers', () => {
       mistakesCount: 0,
       hintsUsed: 0,
     })
-    assert.equal(hardScore, 1280)
+    assert.equal(hardScore, 3000 + 290 * 3)
 
     const floorScore = assistance.calculateScore({
       difficulty: 'easy',
@@ -50,7 +50,7 @@ test.group('Game services and serializers', () => {
       mistakesCount: 50,
       hintsUsed: 20,
     })
-    assert.equal(floorScore, 0)
+    assert.equal(floorScore, 100)
 
     const hint = assistance.getHint([0, 1], [0, 1, 2, 3])
     assert.deepEqual(hint, {

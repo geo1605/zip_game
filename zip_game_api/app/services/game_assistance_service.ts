@@ -1,4 +1,6 @@
 import type { LevelDifficulty } from '#models/level'
+import ScoringService from '#services/scoring_service'
+import { DIFFICULTIES } from '#utils/board_utils'
 
 export interface ScoreInput {
   difficulty: LevelDifficulty
@@ -20,15 +22,10 @@ export interface PlayerPerformance {
   averageHints: number
 }
 
-const DIFFICULTY_ORDER: LevelDifficulty[] = ['easy', 'medium', 'hard']
-const DIFFICULTY_BONUS: Record<LevelDifficulty, number> = {
-  easy: 0,
-  medium: 150,
-  hard: 300,
-}
-
 /** Server-side hints, scores, and a small performance based difficulty adjustment. */
 export default class GameAssistanceService {
+  private readonly scoring = new ScoringService()
+
   getHint(currentPath: number[], solution: number[]): HintResult | null {
     if (solution.length === 0) return null
 
@@ -58,35 +55,35 @@ export default class GameAssistanceService {
   }
 
   calculateScore(input: ScoreInput): number {
-    const elapsedSeconds = this.nonNegativeInteger(input.elapsedSeconds)
-    const mistakesCount = this.nonNegativeInteger(input.mistakesCount)
-    const hintsUsed = this.nonNegativeInteger(input.hintsUsed)
-    const base = 1000 + DIFFICULTY_BONUS[input.difficulty]
-    return Math.max(0, base - elapsedSeconds * 2 - mistakesCount * 25 - hintsUsed * 75)
+    return this.scoring
+      .calculate({
+        difficulty: input.difficulty,
+        durationSeconds: input.elapsedSeconds,
+        mistakes: input.mistakesCount,
+        hintsUsed: input.hintsUsed,
+      })
+      .total
   }
 
   recommendDifficulty(
     currentDifficulty: LevelDifficulty,
     performance: PlayerPerformance
   ): LevelDifficulty {
-    const currentIndex = DIFFICULTY_ORDER.indexOf(currentDifficulty)
+    const currentIndex = DIFFICULTIES.indexOf(currentDifficulty)
     if (currentIndex < 0) return 'easy'
 
     const completionRate = Math.min(1, Math.max(0, performance.completionRate))
     const mistakes = Math.max(0, performance.averageMistakes)
     const hints = Math.max(0, performance.averageHints)
 
-    if (completionRate < 0.45 || hints >= 2.5 || mistakes >= 8) {
-      return DIFFICULTY_ORDER[Math.max(0, currentIndex - 1)]
+    const poor = completionRate < 0.45 || hints >= 3 || mistakes >= 10
+    const excellent = completionRate >= 0.8 && hints === 0 && mistakes <= 2
+    if (poor && currentIndex > 0) {
+      return DIFFICULTIES[currentIndex - 1]
     }
-    if (completionRate >= 0.8 && hints <= 1 && mistakes <= 3) {
-      return DIFFICULTY_ORDER[Math.min(DIFFICULTY_ORDER.length - 1, currentIndex + 1)]
+    if (excellent && currentIndex < DIFFICULTIES.length - 1) {
+      return DIFFICULTIES[currentIndex + 1]
     }
     return currentDifficulty
-  }
-
-  private nonNegativeInteger(value: number): number {
-    if (!Number.isFinite(value)) return 0
-    return Math.max(0, Math.floor(value))
   }
 }

@@ -4,6 +4,7 @@ import GameSessionRepository, { type MoveInput } from '#repositories/game_sessio
 import LevelRepository from '#repositories/level_repository'
 import GameValidatorService from '#services/game_validator_service'
 import GameAssistanceService from '#services/game_assistance_service'
+import HintService from '#services/hint_service'
 import { idParamValidator } from '#validators/common_validator'
 import {
   completeGameSessionValidator,
@@ -18,6 +19,7 @@ export default class GameSessionsController {
   private readonly levelRepository = new LevelRepository()
   private readonly gameValidatorService = new GameValidatorService()
   private readonly gameAssistanceService = new GameAssistanceService()
+  private readonly hintService = new HintService()
 
   async store({ auth, request, response }: HttpContext) {
     const user = auth.getUserOrFail()
@@ -126,13 +128,18 @@ export default class GameSessionsController {
       })
     }
 
-    const hint = this.gameAssistanceService.getHint(payload.path ?? [], session.level.solution)
-    if (!hint) {
-      return response.ok({
-        data: {
-          hint: null,
-          hintsUsed: session.hintsUsed,
-        },
+    const board = {
+      size: session.level.gridSize,
+      checkpoints: [...session.level.clues]
+        .sort((a, b) => a.number - b.number)
+        .map((clue) => clue.cell),
+    }
+    const hint = this.hintService.getHint(board, session.level.solution, payload.path ?? [])
+    if (hint.status === 'invalid') {
+      return response.unprocessableEntity({
+        message: hint.message,
+        code: hint.code,
+        index: hint.index,
       })
     }
 

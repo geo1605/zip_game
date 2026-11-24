@@ -4,7 +4,7 @@ import LevelRepository from '#repositories/level_repository'
 import GameSessionRepository from '#repositories/game_session_repository'
 import LevelGeneratorService from '#services/level_generator_service'
 import GameValidatorService from '#services/game_validator_service'
-import GameAssistanceService from '#services/game_assistance_service'
+import AdaptiveDifficultyService from '#services/adaptive_difficulty_service'
 import { idParamValidator } from '#validators/common_validator'
 import { generateLevelValidator, listLevelsQueryValidator } from '#validators/level_validator'
 import { serializeLevel, serializeLevelWithStatus } from '#utils/serializers'
@@ -14,7 +14,7 @@ export default class LevelsController {
   private readonly gameSessionRepository = new GameSessionRepository()
   private readonly levelGeneratorService = new LevelGeneratorService()
   private readonly gameValidatorService = new GameValidatorService()
-  private readonly gameAssistanceService = new GameAssistanceService()
+  private readonly adaptiveDifficultyService = new AdaptiveDifficultyService()
 
   async index({ auth, request, response }: HttpContext) {
     const user = auth.getUserOrFail()
@@ -76,8 +76,9 @@ export default class LevelsController {
   async recommended({ auth, response }: HttpContext) {
     const user = auth.getUserOrFail()
     const recentSessions = await this.gameSessionRepository.findRecentByUser(user.id, 10)
+    const completedSessions = recentSessions.filter((session) => session.status === 'completed')
 
-    if (recentSessions.length === 0) {
+    if (completedSessions.length === 0) {
       return response.ok({
         data: {
           currentDifficulty: 'easy' as LevelDifficulty,
@@ -87,25 +88,24 @@ export default class LevelsController {
       })
     }
 
-    const currentDifficulty: LevelDifficulty = recentSessions[0].level?.difficulty ?? 'easy'
-    const completedCount = recentSessions.filter((s) => s.status === 'completed').length
-    const totalMistakes = recentSessions.reduce((sum, s) => sum + s.mistakesCount, 0)
-    const totalHints = recentSessions.reduce((sum, s) => sum + s.hintsUsed, 0)
-
-    const recommendedDifficulty = this.gameAssistanceService.recommendDifficulty(
+    const currentDifficulty: LevelDifficulty = completedSessions[0].level?.difficulty ?? 'easy'
+    const decision = this.adaptiveDifficultyService.decide(
       currentDifficulty,
-      {
-        completionRate: completedCount / recentSessions.length,
-        averageMistakes: totalMistakes / recentSessions.length,
-        averageHints: totalHints / recentSessions.length,
-      }
+      completedSessions.map((session) => ({
+        difficulty: session.level?.difficulty ?? currentDifficulty,
+        durationSeconds: session.elapsedSeconds,
+        mistakes: session.mistakesCount,
+        hintsUsed: session.hintsUsed,
+      }))
     )
 
     return response.ok({
       data: {
         currentDifficulty,
-        recommendedDifficulty,
-        basedOnSessions: recentSessions.length,
+        recommendedDifficulty: decision.recommended,
+        basedOnSessions: completedSessions.length,
+        change: decision.change,
+        reason: decision.reason,
       },
     })
   }
