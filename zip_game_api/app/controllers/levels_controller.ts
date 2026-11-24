@@ -1,4 +1,6 @@
+import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
+import GameException from '#exceptions/game_exception'
 import type { LevelDifficulty } from '#models/level'
 import LevelRepository from '#repositories/level_repository'
 import GameSessionRepository from '#repositories/game_session_repository'
@@ -9,12 +11,15 @@ import { idParamValidator } from '#validators/common_validator'
 import { generateLevelValidator, listLevelsQueryValidator } from '#validators/level_validator'
 import { serializeLevel, serializeLevelWithStatus } from '#utils/serializers'
 
+@inject()
 export default class LevelsController {
-  private readonly levelRepository = new LevelRepository()
-  private readonly gameSessionRepository = new GameSessionRepository()
-  private readonly levelGeneratorService = new LevelGeneratorService()
-  private readonly gameValidatorService = new GameValidatorService()
-  private readonly adaptiveDifficultyService = new AdaptiveDifficultyService()
+  constructor(
+    private readonly levelRepository: LevelRepository,
+    private readonly gameSessionRepository: GameSessionRepository,
+    private readonly levelGeneratorService: LevelGeneratorService,
+    private readonly gameValidatorService: GameValidatorService,
+    private readonly adaptiveDifficultyService: AdaptiveDifficultyService
+  ) {}
 
   async index({ auth, request, response }: HttpContext) {
     const user = auth.getUserOrFail()
@@ -33,8 +38,9 @@ export default class LevelsController {
 
     const levelWithStatus = await this.levelRepository.findByIdWithUserStatus(id, user.id)
     if (!levelWithStatus) {
-      return response.notFound({
-        message: 'Level not found',
+      throw new GameException('Level not found', {
+        status: 404,
+        code: 'E_LEVEL_NOT_FOUND',
       })
     }
 
@@ -61,8 +67,9 @@ export default class LevelsController {
     )
 
     if (!verification.isValid || !verification.isComplete) {
-      return response.internalServerError({
-        message: 'Failed to generate a valid level',
+      throw new GameException('Failed to generate a valid level', {
+        status: 500,
+        code: 'E_GENERATION_FAILED',
       })
     }
 
@@ -70,6 +77,7 @@ export default class LevelsController {
 
     return response.created({
       data: serializeLevel(level),
+      metrics: generated.metrics,
     })
   }
 
