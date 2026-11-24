@@ -1,8 +1,13 @@
 import 'package:material_ui/material_ui.dart';
+
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/leaderboard/presentation/leaderboard_page.dart';
 import '../../features/levels/presentation/pages/levels_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
+import '../../features/game/presentation/pages/game_page.dart';
+import '../../features/auth/presentation/controllers/auth_controller.dart';
+import '../../features/auth/presentation/pages/login_page.dart';
+import '../app_scope.dart';
 
 /// Rutas con nombre de la aplicación
 class AppRoutes {
@@ -22,8 +27,9 @@ class AppRoutes {
       case levels:
         page = const LevelsPage();
       case game:
-        // Pantalla temporal hasta integrar GamePage (commits 21–24)
-        page = _GamePlaceholderPage(levelId: settings.arguments as int?);
+        page = GamePage(
+          levelId: settings.arguments is int ? settings.arguments as int : null,
+        );
       case leaderboard:
         page = const LeaderboardPage();
       case profile:
@@ -31,26 +37,16 @@ class AppRoutes {
       default:
         return null;
     }
-    return MaterialPageRoute(builder: (_) => page, settings: settings);
-  }
-}
-
-class _GamePlaceholderPage extends StatelessWidget {
-  const _GamePlaceholderPage({this.levelId});
-
-  final int? levelId;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('ZIP Game')),
-      body: Center(
-        child: Text(
-          levelId == null
-              ? 'Módulo de juego pendiente de integración'
-              : 'Nivel #$levelId pendiente de integración',
-        ),
-      ),
+    return MaterialPageRoute(
+      builder: (context) {
+        final auth = AppScope.of(context).authController;
+        if (settings.name != register &&
+            auth.status != AuthStatus.authenticated) {
+          return const LoginPage();
+        }
+        return page;
+      },
+      settings: settings,
     );
   }
 }

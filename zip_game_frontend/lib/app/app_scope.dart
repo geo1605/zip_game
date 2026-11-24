@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+
 import '../core/network/api_client.dart';
 import '../core/network/token_storage.dart';
 import '../features/auth/data/datasources/auth_remote_datasource.dart';
@@ -12,6 +13,8 @@ import '../features/levels/data/repositories/levels_repository_impl.dart';
 import '../features/levels/domain/repositories/levels_repository.dart';
 import '../features/profile/data/profile_repository_impl.dart';
 import '../features/profile/domain/profile.dart';
+import '../features/game/data/remote_game_repository.dart';
+import '../features/game/domain/game_repository.dart';
 
 /// Contenedor de dependencias (inyección manual).
 /// Las pantallas obtienen los repositorios con `AppScope.of(context)`.
@@ -22,7 +25,9 @@ class AppDependencies {
     required this.levelsRepository,
     required this.leaderboardRepository,
     required this.profileRepository,
-  }) : authController = AuthController(authRepository);
+    GameRepository? gameRepository,
+  }) : authController = AuthController(authRepository),
+       gameRepository = gameRepository ?? RemoteGameRepository(apiClient);
 
   final ApiClient apiClient;
   final AuthRepository authRepository;
@@ -30,13 +35,17 @@ class AppDependencies {
   final LeaderboardRepository leaderboardRepository;
   final ProfileRepository profileRepository;
   final AuthController authController;
+  final GameRepository gameRepository;
 
   /// Construye las dependencias reales que hablan con AdonisJS
   factory AppDependencies.production() {
     final api = ApiClient(tokenStorage: SharedPrefsTokenStorage());
     final deps = AppDependencies(
       apiClient: api,
-      authRepository: AuthRepositoryImpl(AuthRemoteDataSource(api), api.tokenStorage),
+      authRepository: AuthRepositoryImpl(
+        AuthRemoteDataSource(api),
+        api.tokenStorage,
+      ),
       levelsRepository: LevelsRepositoryImpl(LevelsRemoteDataSource(api)),
       leaderboardRepository: LeaderboardRepositoryImpl(api),
       profileRepository: ProfileRepositoryImpl(api),
@@ -61,5 +70,6 @@ class AppScope extends InheritedWidget {
   }
 
   @override
-  bool updateShouldNotify(AppScope oldWidget) => dependencies != oldWidget.dependencies;
+  bool updateShouldNotify(AppScope oldWidget) =>
+      dependencies != oldWidget.dependencies;
 }
