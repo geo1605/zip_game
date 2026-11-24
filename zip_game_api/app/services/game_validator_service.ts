@@ -1,129 +1,188 @@
 import type { LevelClue } from '#models/level'
-import { areOrthogonallyAdjacent, DEFAULT_GRID_SIZE, isValidCell } from '#utils/board_utils'
+import {
+  areAdjacent,
+  checkpointMap,
+  DEFAULT_GRID_SIZE,
+  isValidCell,
+  type BoardDefinition,
+} from '#utils/board_utils'
+
+export type PathErrorCode =
+  | 'EMPTY_PATH'
+  | 'OUT_OF_BOUNDS'
+  | 'INVALID_START'
+  | 'REPEATED_CELL'
+  | 'NOT_ADJACENT'
+  | 'CHECKPOINT_ORDER'
+  | 'PREMATURE_END'
+  | 'INCOMPLETE'
+  | 'INVALID_END'
+  | 'INVALID_BOARD'
+
+export interface PathValidationResult {
+  valid: boolean
+  isValid: boolean
+  isComplete: boolean
+  code?: PathErrorCode
+  message?: string
+  index?: number
+  errors: string[]
+  nextCheckpoint: number
+  nextClue: number | null
+}
 
 export interface PathValidationOptions {
   gridSize?: number
   requireComplete?: boolean
 }
 
-export interface PathValidationResult {
-  isValid: boolean
-  isComplete: boolean
-  errors: string[]
-  nextClue: number | null
-}
-
-/** Validates a path independently of HTTP and persistence concerns. */
+/** Server-side ZIP rule validation. Prefix checks support moves and smart hints. */
 export default class GameValidatorService {
+  validatePrefix(board: BoardDefinition, path: number[]): PathValidationResult {
+    const total = board.size * board.size
+    if (
+      !Number.isInteger(board.size) ||
+      board.size < 2 ||
+      !Array.isArray(board.checkpoints) ||
+      board.checkpoints.length < 2 ||
+      board.checkpoints.some((cell) => !isValidCell(cell, board.size)) ||
+      new Set(board.checkpoints).size !== board.checkpoints.length
+    ) {
+      return this.fail('INVALID_BOARD', 'The level contains invalid checkpoints', 0, 1)
+    }
+    if (!Array.isArray(path) || path.length === 0) {
+      return this.fail('EMPTY_PATH', 'The path is empty', 0, 1)
+    }
+    for (let index = 0; index < path.length; index++) {
+      if (!isValidCell(path[index], board.size)) {
+        return this.fail('OUT_OF_BOUNDS', `Cell ${path[index]} is outside the board`, index, 1)
+      }
+    }
+    if (path[0] !== board.checkpoints[0]) {
+      return this.fail('INVALID_START', 'The path must start on checkpoint 1', 0, 1)
+    }
+
+    const cellsByCheckpoint = checkpointMap(board)
+    const lastNumber = board.checkpoints.length
+    const lastCell = board.checkpoints[lastNumber - 1]
+    const visited = new Set<number>()
+    let nextCheckpoint = 1
+
+    for (let index = 0; index < path.length; index++) {
+      const cell = path[index]
+      if (visited.has(cell)) {
+        return this.fail('REPEATED_CELL', `Cell ${cell} is visited twice`, index, nextCheckpoint)
+      }
+      if (index > 0 && !areAdjacent(path[index - 1], cell, board.size)) {
+        return this.fail(
+          'NOT_ADJACENT',
+          `Move ${path[index - 1]} -> ${cell} is not horizontal or vertical`,
+          index,
+          nextCheckpoint
+        )
+      }
+      const checkpointNumber = cellsByCheckpoint.get(cell)
+      if (checkpointNumber !== undefined) {
+        if (checkpointNumber !== nextCheckpoint) {
+          return this.fail(
+            'CHECKPOINT_ORDER',
+            `Expected checkpoint ${nextCheckpoint} but reached ${checkpointNumber}`,
+            index,
+            nextCheckpoint
+          )
+        }
+        if (checkpointNumber === lastNumber && index !== total - 1) {
+          return this.fail(
+            'PREMATURE_END',
+            'The highest checkpoint can only be reached after visiting every cell',
+            index,
+            nextCheckpoint
+          )
+        }
+        nextCheckpoint++
+      }
+      visited.add(cell)
+    }
+
+    return this.success(nextCheckpoint)
+  }
+
+  validateSolution(board: BoardDefinition, path: number[]): PathValidationResult {
+    const prefix = this.validatePrefix(board, path)
+    if (!prefix.valid) return prefix
+    const total = board.size * board.size
+    if (path.length !== total) {
+      return this.fail(
+        'INCOMPLETE',
+        `The path covers ${path.length} of ${total} cells`,
+        path.length,
+        prefix.nextCheckpoint
+      )
+    }
+    const lastCell = board.checkpoints[board.checkpoints.length - 1]
+    if (path[path.length - 1] !== lastCell) {
+      return this.fail(
+        'INVALID_END',
+        'The path must end on the highest checkpoint',
+        path.length - 1,
+        prefix.nextCheckpoint
+      )
+    }
+    return { ...prefix, isComplete: true }
+  }
+
+  /** Compatibility adapter for controllers and models using numbered clue objects. */
   validatePath(
     path: number[],
     clues: LevelClue[],
     options: PathValidationOptions = {}
   ): PathValidationResult {
-    const gridSize = options.gridSize ?? DEFAULT_GRID_SIZE
-    const requireComplete = options.requireComplete ?? true
-    const errors: string[] = []
-    const boardCellCount = gridSize * gridSize
-
-    if (!Array.isArray(path)) {
-      return {
-        isValid: false,
-        isComplete: false,
-        errors: ['Path must be an array'],
-        nextClue: null,
-      }
-    }
     if (!Array.isArray(clues) || clues.length === 0) {
-      return {
-        isValid: false,
-        isComplete: false,
-        errors: ['Level must contain numbered clues'],
-        nextClue: null,
-      }
+      return this.fail('INVALID_BOARD', 'The level contains no checkpoints', 0, 1)
+    }
+    const ordered = [...clues].sort((a, b) => a.number - b.number)
+    if (ordered.some((clue, index) => clue.number !== index + 1)) {
+      return this.fail('INVALID_BOARD', 'Checkpoint numbers must be consecutive from 1', 0, 1)
+    }
+    const board: BoardDefinition = {
+      size: options.gridSize ?? DEFAULT_GRID_SIZE,
+      checkpoints: ordered.map((clue) => clue.cell),
     }
 
-    const clueByCell = new Map<number, number>()
-    const clueNumbers = new Set<number>()
-    for (const clue of clues) {
-      if (
-        !Number.isInteger(clue.number) ||
-        clue.number < 1 ||
-        !isValidCell(clue.cell, gridSize) ||
-        clueByCell.has(clue.cell) ||
-        clueNumbers.has(clue.number)
-      ) {
-        errors.push('Level clues contain duplicate or invalid numbers/cells')
-        break
-      }
-      clueByCell.set(clue.cell, clue.number)
-      clueNumbers.add(clue.number)
+    if (options.requireComplete === false) {
+      const result = this.validatePrefix(board, path)
+      return { ...result, isComplete: false }
     }
+    return this.validateSolution(board, path)
+  }
 
-    const orderedNumbers = [...clueNumbers].sort((a, b) => a - b)
-    if (orderedNumbers.some((number, index) => number !== index + 1)) {
-      errors.push('Level clue numbers must start at 1 and be consecutive')
-    }
-    if (errors.length > 0) {
-      return { isValid: false, isComplete: false, errors, nextClue: null }
-    }
-
-    if (path.length === 0) {
-      const emptyPathErrors = requireComplete ? [`Path must visit all ${boardCellCount} cells`] : []
-      return {
-        isValid: emptyPathErrors.length === 0,
-        isComplete: false,
-        errors: emptyPathErrors,
-        nextClue: 1,
-      }
-    }
-
-    const startCell = clues.find((clue) => clue.number === 1)!.cell
-    if (path[0] !== startCell) errors.push('Path must start at clue 1')
-
-    const visited = new Set<number>()
-    let expectedClue = 1
-    for (let index = 0; index < path.length; index++) {
-      const cell = path[index]
-      if (!isValidCell(cell, gridSize)) {
-        errors.push(`Cell at position ${index} is outside the board`)
-        continue
-      }
-      if (visited.has(cell)) errors.push(`Cell ${cell} is repeated`)
-      visited.add(cell)
-
-      if (index > 0 && isValidCell(path[index - 1], gridSize)) {
-        if (!areOrthogonallyAdjacent(path[index - 1], cell, gridSize)) {
-          errors.push(`Move from ${path[index - 1]} to ${cell} is not orthogonal`)
-        }
-      }
-
-      const clueNumber = clueByCell.get(cell)
-      if (clueNumber !== undefined) {
-        if (clueNumber !== expectedClue) {
-          errors.push(`Expected clue ${expectedClue} before clue ${clueNumber}`)
-        } else {
-          expectedClue++
-        }
-      }
-    }
-
-    if (path.length > boardCellCount) errors.push('Path contains more cells than the board')
-    const isComplete = path.length === boardCellCount && visited.size === boardCellCount
-    if (requireComplete && !isComplete) errors.push(`Path must visit all ${boardCellCount} cells`)
-    if (isComplete && expectedClue <= clues.length)
-      errors.push(`Path is missing clue ${expectedClue}`)
-    if (
-      isComplete &&
-      path[path.length - 1] !== clues.find((clue) => clue.number === clues.length)?.cell
-    ) {
-      errors.push(`Path must end at clue ${clues.length}`)
-    }
-
+  private fail(
+    code: PathErrorCode,
+    message: string,
+    index: number,
+    nextCheckpoint: number
+  ): PathValidationResult {
     return {
-      isValid: errors.length === 0,
-      isComplete: isComplete && errors.length === 0,
-      errors: [...new Set(errors)],
-      nextClue: expectedClue <= clues.length ? expectedClue : null,
+      valid: false,
+      isValid: false,
+      isComplete: false,
+      code,
+      message,
+      index,
+      errors: [message],
+      nextCheckpoint,
+      nextClue: nextCheckpoint,
+    }
+  }
+
+  private success(nextCheckpoint: number): PathValidationResult {
+    return {
+      valid: true,
+      isValid: true,
+      isComplete: false,
+      errors: [],
+      nextCheckpoint,
+      nextClue: nextCheckpoint,
     }
   }
 }
