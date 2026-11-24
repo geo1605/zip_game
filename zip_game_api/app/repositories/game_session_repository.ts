@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
+import GameException from '#exceptions/game_exception'
 import GameSession from '#models/game_session'
 import GameMove from '#models/game_move'
 import Score from '#models/score'
@@ -47,6 +48,18 @@ export default class GameSessionRepository {
       .first()
   }
 
+  async findByIdForUserForUpdate(
+    sessionId: number,
+    userId: number,
+    trx: TransactionClientContract
+  ): Promise<GameSession | null> {
+    return GameSession.query({ client: trx })
+      .where('id', sessionId)
+      .where('user_id', userId)
+      .forUpdate()
+      .first()
+  }
+
   async incrementHints(session: GameSession): Promise<GameSession> {
     session.hintsUsed += 1
     await session.save()
@@ -77,21 +90,35 @@ export default class GameSessionRepository {
     data: CompleteSessionData
   ): Promise<{ session: GameSession; score: Score }> {
     return db.transaction(async (trx) => {
-      session.useTransaction(trx)
-      session.status = 'completed'
-      session.finishedAt = DateTime.utc()
-      session.elapsedSeconds = data.elapsedSeconds
-      session.mistakesCount = data.mistakesCount
-      session.hintsUsed = data.hintsUsed
-      await session.save()
+      const locked = await this.findByIdForUserForUpdate(session.id, session.userId, trx)
+      if (!locked) {
+        throw new GameException('Game session not found', {
+          status: 404,
+          code: 'E_SESSION_NOT_FOUND',
+        })
+      }
+      if (locked.status !== 'in_progress') {
+        throw new GameException('This game session is already finished', {
+          status: 409,
+          code: 'E_ALREADY_FINISHED',
+        })
+      }
 
-      await this.recordMoves(session.id, data.moves, trx)
+      locked.useTransaction(trx)
+      locked.status = 'completed'
+      locked.finishedAt = DateTime.utc()
+      locked.elapsedSeconds = data.elapsedSeconds
+      locked.mistakesCount = data.mistakesCount
+      locked.hintsUsed = data.hintsUsed
+      await locked.save()
+
+      await this.recordMoves(locked.id, data.moves, trx)
 
       const score = await Score.create(
         {
-          userId: session.userId,
-          levelId: session.levelId,
-          gameSessionId: session.id,
+          userId: locked.userId,
+          levelId: locked.levelId,
+          gameSessionId: locked.id,
           points: data.points,
           elapsedSeconds: data.elapsedSeconds,
           mistakesCount: data.mistakesCount,
@@ -100,7 +127,7 @@ export default class GameSessionRepository {
         { client: trx }
       )
 
-      return { session, score }
+      return { session: locked, score }
     })
   }
 

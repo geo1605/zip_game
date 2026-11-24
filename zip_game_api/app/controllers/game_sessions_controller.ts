@@ -1,9 +1,12 @@
+import { inject } from '@adonisjs/core'
 import { DateTime } from 'luxon'
 import type { HttpContext } from '@adonisjs/core/http'
+import GameException from '#exceptions/game_exception'
 import GameSessionRepository, { type MoveInput } from '#repositories/game_session_repository'
 import LevelRepository from '#repositories/level_repository'
 import GameValidatorService from '#services/game_validator_service'
-import GameAssistanceService from '#services/game_assistance_service'
+import HintService from '#services/hint_service'
+import ScoringService from '#services/scoring_service'
 import { idParamValidator } from '#validators/common_validator'
 import {
   completeGameSessionValidator,
@@ -13,11 +16,15 @@ import {
 } from '#validators/game_session_validator'
 import { serializeGameSession, serializeLevel, serializeScore } from '#utils/serializers'
 
+@inject()
 export default class GameSessionsController {
-  private readonly gameSessionRepository = new GameSessionRepository()
-  private readonly levelRepository = new LevelRepository()
-  private readonly gameValidatorService = new GameValidatorService()
-  private readonly gameAssistanceService = new GameAssistanceService()
+  constructor(
+    private readonly gameSessionRepository: GameSessionRepository,
+    private readonly levelRepository: LevelRepository,
+    private readonly gameValidatorService: GameValidatorService,
+    private readonly hintService: HintService,
+    private readonly scoringService: ScoringService
+  ) {}
 
   async store({ auth, request, response }: HttpContext) {
     const user = auth.getUserOrFail()
@@ -25,8 +32,9 @@ export default class GameSessionsController {
 
     const level = await this.levelRepository.findById(payload.levelId)
     if (!level) {
-      return response.notFound({
-        message: 'Level not found',
+      throw new GameException('Level not found', {
+        status: 404,
+        code: 'E_LEVEL_NOT_FOUND',
       })
     }
 
@@ -49,9 +57,7 @@ export default class GameSessionsController {
 
     const session = await this.gameSessionRepository.findByIdForUser(id, user.id)
     if (!session) {
-      return response.notFound({
-        message: 'Game session not found',
-      })
+      throw this.sessionNotFound()
     }
 
     return response.ok({
@@ -66,15 +72,11 @@ export default class GameSessionsController {
 
     const session = await this.gameSessionRepository.findByIdForUser(id, user.id)
     if (!session) {
-      return response.notFound({
-        message: 'Game session not found',
-      })
+      throw this.sessionNotFound()
     }
 
     if (session.status !== 'in_progress') {
-      return response.conflict({
-        message: 'Game session is not active',
-      })
+      throw this.sessionAlreadyClosed()
     }
 
     const validation = this.gameValidatorService.validatePath(payload.path, session.level.clues, {
@@ -115,30 +117,52 @@ export default class GameSessionsController {
 
     const session = await this.gameSessionRepository.findByIdForUser(id, user.id)
     if (!session) {
-      return response.notFound({
-        message: 'Game session not found',
-      })
+      throw this.sessionNotFound()
     }
 
     if (session.status !== 'in_progress') {
-      return response.conflict({
-        message: 'Game session is not active',
-      })
+      throw this.sessionAlreadyClosed()
     }
 
-    const hint = this.gameAssistanceService.getHint(payload.path ?? [], session.level.solution)
-    if (!hint) {
-      return response.unprocessableEntity({
-        message: 'The path is already complete',
-        code: 'COMPLETE',
+    const currentPath = payload.path ?? []
+    const board = {
+      size: session.level.gridSize,
+      checkpoints: [...session.level.clues]
+        .sort((a, b) => a.number - b.number)
+        .map((clue) => clue.cell),
+    }
+
+    const hint = this.hintService.getHint(board, session.level.solution, currentPath)
+    if (hint.status === 'invalid') {
+      throw new GameException(hint.message, {
+        status: 422,
+        code: `E_${hint.code}`,
+        details: { index: hint.index },
       })
     }
 
     await this.gameSessionRepository.incrementHints(session)
 
+    const step =
+      hint.status === 'backtrack'
+        ? Math.max(1, currentPath.length - hint.undoSteps + 1)
+        : currentPath.length + 1
+
     return response.ok({
       data: {
-        hint,
+        hint: {
+          cell: hint.nextCell,
+          step,
+          status: hint.status,
+          nextCell: hint.nextCell,
+          undoSteps: hint.undoSteps,
+          reason:
+            hint.status === 'backtrack'
+              ? `Backtrack ${hint.undoSteps} step(s) and continue to cell ${hint.nextCell}`
+              : currentPath.length === 0
+                ? 'Start at the first cell'
+                : 'Continue along a valid solution path',
+        },
         hintsUsed: session.hintsUsed,
       },
     })
@@ -151,15 +175,11 @@ export default class GameSessionsController {
 
     const session = await this.gameSessionRepository.findByIdForUser(id, user.id)
     if (!session) {
-      return response.notFound({
-        message: 'Game session not found',
-      })
+      throw this.sessionNotFound()
     }
 
     if (session.status !== 'in_progress') {
-      return response.conflict({
-        message: 'Game session is already closed',
-      })
+      throw this.sessionAlreadyClosed()
     }
 
     const validation = this.gameValidatorService.validatePath(payload.path, session.level.clues, {
@@ -173,6 +193,7 @@ export default class GameSessionsController {
 
       return response.unprocessableEntity({
         message: 'Submitted path is invalid or incomplete',
+        code: validation.code ? `E_${validation.code}` : 'E_INVALID_PATH',
         errors: validation.errors,
         nextClue: validation.nextClue,
         mistakesCount: session.mistakesCount,
@@ -187,10 +208,10 @@ export default class GameSessionsController {
     const mistakesCount = Math.max(session.mistakesCount, payload.mistakesCount ?? 0)
     const hintsUsed = session.hintsUsed
 
-    const points = this.gameAssistanceService.calculateScore({
+    const breakdown = this.scoringService.calculate({
       difficulty: session.level.difficulty,
-      elapsedSeconds,
-      mistakesCount,
+      durationSeconds: elapsedSeconds,
+      mistakes: mistakesCount,
       hintsUsed,
     })
 
@@ -206,7 +227,7 @@ export default class GameSessionsController {
         elapsedSeconds,
         mistakesCount,
         hintsUsed,
-        points,
+        points: breakdown.total,
         moves,
       }
     )
@@ -215,6 +236,7 @@ export default class GameSessionsController {
       data: {
         session: serializeGameSession(completedSession),
         score: serializeScore(score),
+        breakdown,
       },
     })
   }
@@ -225,15 +247,11 @@ export default class GameSessionsController {
 
     const session = await this.gameSessionRepository.findByIdForUser(id, user.id)
     if (!session) {
-      return response.notFound({
-        message: 'Game session not found',
-      })
+      throw this.sessionNotFound()
     }
 
     if (session.status !== 'in_progress') {
-      return response.conflict({
-        message: 'Game session is already closed',
-      })
+      throw this.sessionAlreadyClosed()
     }
 
     session.status = 'abandoned'
@@ -246,6 +264,20 @@ export default class GameSessionsController {
 
     return response.ok({
       data: serializeGameSession(session),
+    })
+  }
+
+  private sessionNotFound() {
+    return new GameException('Game session not found', {
+      status: 404,
+      code: 'E_SESSION_NOT_FOUND',
+    })
+  }
+
+  private sessionAlreadyClosed() {
+    return new GameException('This game session is already finished', {
+      status: 409,
+      code: 'E_ALREADY_FINISHED',
     })
   }
 }
