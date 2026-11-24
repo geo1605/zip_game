@@ -155,12 +155,18 @@ flutter test
 
 ## Team Contributions
 ° *Ángel Geovany Arenas Reta*
+
 ° *Maria Fernanda Guerrero Calderón*
+
 ° *Jesús Ramiro Rivera Bracho*
+
 ° *César Fernando Sarmiento Solís*
+
 ° *Leonardo Vallejo Herrera*
-* **Member 1 (Commits 01–05):** AdonisJS 6 initialization, MySQL configuration, migrations, Lucid models, repositories, and seeders.
-* **Member 2 (Commits 06–10):** $6 \times 6$ board utilities, path validation, DFS/backtracking solver, procedural level generator, hints, scoring, and adaptive difficulty.
-* **Member 3 (Commits 11–15):** VineJS validators, auth middleware, REST controllers, routes, profile, history, leaderboard, and backend API tests.
-* **Member 4 (Commits 16–20):** Flutter layered architecture, API client, token storage, authentication layers and screens, home, levels, profile, leaderboard, navigation, and project `README.md`.
-* **Member 5 (Commits 21–25):** ZIP game domain rules, remote game repository, game controller, interactive $6 \times 6$ board UI, HUD, results, integration tests, and technical documentation.
+
+
+* **Ángel Geovany Arenas Reta (Commits 01–05):** AdonisJS 6 initialization, MySQL configuration, migrations, Lucid models, repositories, and seeders.
+* **Jesús Ramiro Rivera Bracho (Commits 06–10):** $6 \times 6$ board utilities, path validation, DFS/backtracking solver, procedural level generator, hints, scoring, and adaptive difficulty.
+* **Leonardo Vallejo Herrera (Commits 11–15):** VineJS validators, auth middleware, REST controllers, routes, profile, history, leaderboard, and backend API tests.
+* **Maria Fernanda Guerrero Calderón (Commits 16–20):** Flutter layered architecture, API client, token storage, authentication layers and screens, home, levels, profile, leaderboard, navigation, and project `README.md`.
+* **César Fernando Sarmiento Solís (Commits 21–25):** ZIP game domain rules, remote game repository, game controller, interactive $6 \times 6$ board UI, HUD, results, integration tests, and technical documentation.
