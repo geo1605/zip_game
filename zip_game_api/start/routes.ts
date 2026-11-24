@@ -12,6 +12,7 @@ import { middleware } from '#start/kernel'
 
 const AuthController = () => import('#controllers/auth_controller')
 const LevelsController = () => import('#controllers/levels_controller')
+const GameSessionsController = () => import('#controllers/game_sessions_controller')
 
 router.get('/', async () => {
   return {
@@ -39,6 +40,18 @@ router
         router.get('/:id', [LevelsController, 'show'])
       })
       .prefix('/levels')
+      .use(middleware.auth())
+
+    router
+      .group(() => {
+        router.post('/', [GameSessionsController, 'store'])
+        router.get('/:id', [GameSessionsController, 'show'])
+        router.post('/:id/moves', [GameSessionsController, 'move'])
+        router.post('/:id/hint', [GameSessionsController, 'hint'])
+        router.post('/:id/complete', [GameSessionsController, 'complete'])
+        router.post('/:id/abandon', [GameSessionsController, 'abandon'])
+      })
+      .prefix('/sessions')
       .use(middleware.auth())
   })
   .prefix('/api')
