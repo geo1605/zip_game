@@ -23,21 +23,32 @@ class ApiException implements Exception {
     if (body is Map<String, dynamic>) {
       if (body['message'] is String) message = body['message'] as String;
       if (body['code'] is String) code = body['code'] as String;
-      if (body['details'] is Map<String, dynamic>) {
-        details = body['details'] as Map<String, dynamic>;
-      }
+      details = body['details'] is Map<String, dynamic>
+          ? body['details'] as Map<String, dynamic>
+          : body;
 
       final errors = body['errors'];
       if (errors is List && errors.isNotEmpty) {
-        message = errors
-            .whereType()
-            .map((e) => e['message']?.toString() ?? '')
+        final messages = errors
+            .map(
+              (e) => e is String
+                  ? e
+                  : e is Map
+                  ? e['message']?.toString() ?? ''
+                  : '',
+            )
             .where((m) => m.isNotEmpty)
             .join('\n');
+        if (messages.isNotEmpty) message = messages;
       }
     }
 
-    return ApiException(message, statusCode: statusCode, code: code, details: details);
+    return ApiException(
+      message,
+      statusCode: statusCode,
+      code: code,
+      details: details,
+    );
   }
 
   static String _defaultMessage(int status) {
