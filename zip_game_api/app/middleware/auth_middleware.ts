@@ -3,15 +3,10 @@ import type { NextFn } from '@adonisjs/core/types/http'
 import type { Authenticators } from '@adonisjs/auth/types'
 
 /**
- * Auth middleware is used authenticate HTTP requests and deny
- * access to unauthenticated users.
+ * Auth middleware authenticates API requests using bearer access tokens
+ * and rejects unauthenticated requests with a 401 JSON response.
  */
 export default class AuthMiddleware {
-  /**
-   * The URL to redirect to, when authentication fails
-   */
-  redirectTo = '/login'
-
   async handle(
     ctx: HttpContext,
     next: NextFn,
@@ -19,7 +14,8 @@ export default class AuthMiddleware {
       guards?: (keyof Authenticators)[]
     } = {}
   ) {
-    await ctx.auth.authenticateUsing(options.guards, { loginRoute: this.redirectTo })
+    const guards = options.guards?.length ? options.guards : (['api'] as (keyof Authenticators)[])
+    await ctx.auth.authenticateUsing(guards)
     return next()
   }
 }
