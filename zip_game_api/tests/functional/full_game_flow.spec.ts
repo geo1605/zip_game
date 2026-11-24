@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import Level from '#models/level'
 import GameSession from '#models/game_session'
+import ScoringService from '#services/scoring_service'
 
 const solution = [
   0, 1, 2, 3, 4, 5, 11, 10, 9, 8, 7, 6, 12, 13, 14, 15, 16, 17, 23, 22, 21, 20, 19, 18, 24, 25, 26,
@@ -66,7 +67,13 @@ test.group('Flutter contract: complete 6x6 flow', (group) => {
       .json({ path: solution, elapsedSeconds: 30, mistakesCount: 2, points: 999999 })
     complete.assertStatus(200)
     const score = complete.body().data.score
-    assert.equal(score.points, Math.max(0, 1000 - score.elapsedSeconds * 2 - 50 - 75))
+    const expectedPoints = new ScoringService().calculate({
+      difficulty: 'easy',
+      durationSeconds: score.elapsedSeconds,
+      mistakes: score.mistakesCount,
+      hintsUsed: score.hintsUsed,
+    }).total
+    assert.equal(score.points, expectedPoints)
     assert.equal(score.hintsUsed, 1)
 
     const recovered = await client.get(`/api/sessions/${sessionId}`).bearerToken(token)

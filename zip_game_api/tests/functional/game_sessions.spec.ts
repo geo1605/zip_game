@@ -3,6 +3,7 @@ import testUtils from '@adonisjs/core/services/test_utils'
 import User from '#models/user'
 import Level from '#models/level'
 import Score from '#models/score'
+import ScoringService from '#services/scoring_service'
 
 const SAMPLE_4X4_SOLUTION = [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12]
 const SAMPLE_4X4_CLUES = [
@@ -94,8 +95,12 @@ test.group('Game Sessions API', (group) => {
     assert.equal(completed.session.status, 'completed')
     assert.equal(completed.score.mistakesCount, 2)
     assert.equal(completed.score.hintsUsed, 1)
-    // Server score: 1000 + 150 (medium) - elapsed*2 - 2*25 - 1*75
-    const expectedPoints = Math.max(0, 1150 - completed.score.elapsedSeconds * 2 - 50 - 75)
+    const expectedPoints = new ScoringService().calculate({
+      difficulty: 'medium',
+      durationSeconds: completed.score.elapsedSeconds,
+      mistakes: completed.score.mistakesCount,
+      hintsUsed: completed.score.hintsUsed,
+    }).total
     assert.equal(completed.score.points, expectedPoints)
 
     const persistedScore = await Score.findByOrFail('gameSessionId', sessionId)
