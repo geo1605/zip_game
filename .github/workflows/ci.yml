@@ -1,0 +1,98 @@
+name: ZIP Game integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: test_password
+          MYSQL_DATABASE: zip_game_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -ptest_password"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    env:
+      TZ: UTC
+      HOST: 127.0.0.1
+      PORT: 3334
+      NODE_ENV: test
+      LOG_LEVEL: error
+      APP_KEY: zip-game-tests-only-key-32-chars!!
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: test_password
+      DB_DATABASE: zip_game_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: zip_game_api/package-lock.json
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.1'
+          channel: stable
+          cache: true
+      - name: Install API
+        working-directory: zip_game_api
+        run: npm ci
+      - name: Typecheck API
+        working-directory: zip_game_api
+        run: npm run typecheck
+      - name: Lint API
+        working-directory: zip_game_api
+        run: npm run lint
+      - name: Unit and HTTP API tests
+        working-directory: zip_game_api
+        run: npm test
+      - name: Build API
+        working-directory: zip_game_api
+        run: npm run build
+      - name: Install Flutter packages
+        working-directory: zip_game_frontend
+        run: flutter pub get
+      - name: Analyze Flutter
+        working-directory: zip_game_frontend
+        run: flutter analyze
+      - name: Flutter unit, widget and integration contract tests
+        working-directory: zip_game_frontend
+        run: flutter test --coverage
+      - name: Build web
+        working-directory: zip_game_frontend
+        run: flutter build web --release --dart-define=API_URL=http://localhost:3334/api
+      - name: Start isolated API for Flutter HTTP integration
+        working-directory: zip_game_api
+        run: |
+          node ace migration:run --force
+          node ace serve > /tmp/zip-game-api.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl --fail http://127.0.0.1:3334/; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/zip-game-api.log
+          exit 1
+      - name: Flutter repositories against real Adonis and MySQL
+        working-directory: zip_game_frontend
+        run: >-
+          flutter test test/live_api_test.dart
+          --dart-define=RUN_LIVE_API=true
+          --dart-define=API_URL=http://127.0.0.1:3334/api
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flutter-coverage
+          path: zip_game_frontend/coverage/lcov.info

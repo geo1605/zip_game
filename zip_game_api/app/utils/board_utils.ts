@@ -49,7 +49,11 @@ export function getOrthogonalNeighbors(cell: number, gridSize = DEFAULT_GRID_SIZ
   return neighbors
 }
 
-export function areOrthogonallyAdjacent(first: number, second: number, gridSize = DEFAULT_GRID_SIZE) {
+export function areOrthogonallyAdjacent(
+  first: number,
+  second: number,
+  gridSize = DEFAULT_GRID_SIZE
+) {
   if (!isValidCell(first, gridSize) || !isValidCell(second, gridSize)) return false
   const a = cellToPosition(first, gridSize)
   const b = cellToPosition(second, gridSize)
@@ -65,6 +69,6 @@ export function createBoard(gridSize = DEFAULT_GRID_SIZE): number[][] {
     throw new RangeError('Grid size must be a positive integer')
   }
   return Array.from({ length: gridSize }, (_, row) =>
-    Array.from({ length: gridSize }, (_, column) => row * gridSize + column)
+    Array.from({ length: gridSize }, (_cell, column) => row * gridSize + column)
   )
 }

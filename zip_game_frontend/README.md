@@ -1,17 +1,24 @@
-# zip_game_frontend
+# ZIP Game — Flutter
 
-A new Flutter project.
+Cliente para web y Android con autenticación, niveles, tablero interactivo, pistas, cronómetro, resultados, perfil, historial y ranking.
 
-## Getting Started
+Requiere Flutter 3.50.1 / Dart 3.14 y la API AdonisJS en ejecución.
 
-This project is a starting point for a Flutter application.
+```sh
+flutter pub get
+flutter run -d chrome --dart-define=API_URL=http://localhost:3333/api
+```
 
-A few resources to get you started if this is your first Flutter project:
+En un emulador Android cambia `localhost` por `10.0.2.2`.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```sh
+flutter analyze
+flutter test --coverage
+flutter build web --release
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- [Preparación de API y MySQL](../docs/ejecucion-local.md)
+- [Arquitectura, reglas y contrato de partidas](../docs/integrante-5.md)
+- [Resultados de pruebas y capturas](../docs/verificacion.md)
+
+`test/live_api_test.dart` se activa con `--dart-define=RUN_LIVE_API=true` y una `API_URL` de pruebas. `test/evidence_capture_test.dart` genera capturas con `--dart-define=CAPTURE_EVIDENCE=true` y `ZIP_FLUTTER_ROOT` apuntando al SDK. Ambas se omiten en la ejecución habitual porque necesitan recursos externos; los scripts de `../scripts/` las ejecutan explícitamente.

@@ -51,9 +51,9 @@ zip_game/
 
 ## Prerequisites
 
-* **Node.js** 20+ and **npm**
+* **Node.js** 24+ and **npm**
 * **MySQL Server** 8.x
-* **Flutter SDK** 3.x and **Dart SDK**
+* **Flutter SDK** 3.50.1+ and **Dart SDK** 3.14+
 * **Google Chrome** (for Web) or an **Android emulator / device**
 
 ---
@@ -136,7 +136,7 @@ Base URL: `http://localhost:3333/api`
 
 ## Running Automated Tests
 
-**Backend (Japa):**
+**Backend (Japa):** Copy `zip_game_api/.env.test.example` to `.env.test` and use a separate MySQL database ending in `_test`. See the [local setup guide](docs/ejecucion-local.md).
 
 ```bash
 cd zip_game_api
@@ -170,3 +170,13 @@ flutter test
 * **Leonardo Vallejo Herrera (Commits 11–15):** VineJS validators, auth middleware, REST controllers, routes, profile, history, leaderboard, and backend API tests.
 * **Maria Fernanda Guerrero Calderón (Commits 16–20):** Flutter layered architecture, API client, token storage, authentication layers and screens, home, levels, profile, leaderboard, navigation, and project `README.md`.
 * **César Fernando Sarmiento Solís (Commits 21–25):** ZIP game domain rules, remote game repository, game controller, interactive $6 \times 6$ board UI, HUD, results, integration tests, and technical documentation.
+
+## Gameplay and integration — Member 5
+
+The Flutter game supports touch and mouse drawing, undo, restart, server hints, a live timer, progress and a result screen using the saved server score. Results link to profile, history and leaderboard.
+
+- [Local setup and test commands (Spanish)](docs/ejecucion-local.md)
+- [Technical documentation](docs/integrante-5.md)
+- [Verification results and screenshots](docs/verificacion.md)
+
+On Windows, repeat the checks with `scripts/verify-flutter.ps1 -FlutterSdk <sdk-path>` and `scripts/verify-api.ps1 -FlutterSdk <sdk-path>`. The API script requires the MySQL test database and checks the real Flutter → Adonis → MySQL flow.

@@ -4,6 +4,7 @@ import app from '@adonisjs/core/services/app'
 import type { Config } from '@japa/runner/types'
 import { pluginAdonisJS } from '@japa/plugin-adonisjs'
 import testUtils from '@adonisjs/core/services/test_utils'
+import env from '#start/env'
 
 /**
  * This file is imported by the "bin/test.ts" entrypoint file
@@ -33,6 +34,9 @@ export const runnerHooks: Required<Pick<Config, 'setup' | 'teardown'>> = {
  */
 export const configureSuite: Config['configureSuite'] = (suite) => {
   if (['browser', 'functional', 'e2e'].includes(suite.name)) {
+    if (!env.get('DB_DATABASE').endsWith('_test')) {
+      throw new Error('Functional tests require a dedicated database whose name ends in _test')
+    }
     suite.setup(() => testUtils.db().migrate())
     return suite.setup(() => testUtils.httpServer().start())
   }

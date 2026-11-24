@@ -41,7 +41,7 @@ export default class AuthController {
     return response.created({
       user: serializeUser(user),
       token: {
-        type: token.type,
+        type: 'bearer',
         value: token.value!.release(),
         expiresAt: token.expiresAt?.toISOString() ?? null,
       },
@@ -67,7 +67,7 @@ export default class AuthController {
     return response.ok({
       user: serializeUser(user),
       token: {
-        type: token.type,
+        type: 'bearer',
         value: token.value!.release(),
         expiresAt: token.expiresAt?.toISOString() ?? null,
       },

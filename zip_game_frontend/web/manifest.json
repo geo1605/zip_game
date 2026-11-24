@@ -1,11 +1,11 @@
 {
-    "name": "zip_game_frontend",
-    "short_name": "zip_game_frontend",
+    "name": "ZIP Game",
+    "short_name": "ZIP Game",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFBFE",
+    "theme_color": "#5B3CC4",
+    "description": "Conecta los números y recorre las 36 celdas del tablero.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -31,7 +31,8 @@ export default class PathSolverService {
       clueCells.add(clue.cell)
       numbers.add(clue.number)
     }
-    if ([...numbers].sort((a, b) => a - b).some((number, index) => number !== index + 1)) return null
+    if ([...numbers].sort((a, b) => a - b).some((number, index) => number !== index + 1))
+      return null
 
     const start = clues.find((clue) => clue.number === 1)?.cell
     if (start === undefined) return null

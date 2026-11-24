@@ -30,10 +30,10 @@ const DIFFICULTY_BONUS: Record<LevelDifficulty, number> = {
 /** Server-side hints, scores, and a small performance based difficulty adjustment. */
 export default class GameAssistanceService {
   getHint(currentPath: number[], solution: number[]): HintResult | null {
-    if (solution.length === 0 || currentPath.length >= solution.length) return null
+    if (solution.length === 0) return null
 
-    // Exact-prefix play gets the immediate next step. If a client asks after a
-    // mistake or a stale move, anchor the hint at its most recent cell on solution.
+    // Keep only the shared prefix. After a deviation, the client can undo back
+    // to step - 1 and show this cell without repeats, skips, or diagonal moves.
     let step = 0
     while (
       step < currentPath.length &&
@@ -43,17 +43,17 @@ export default class GameAssistanceService {
       step++
     }
 
-    if (step < currentPath.length) {
-      const lastCell = currentPath[currentPath.length - 1]
-      const lastMatchingStep = solution.lastIndexOf(lastCell)
-      step = lastMatchingStep >= 0 ? lastMatchingStep + 1 : step
-    }
     if (step >= solution.length) return null
 
     return {
       cell: solution[step],
       step: step + 1,
-      reason: step === 0 ? 'Start at the first cell' : 'Continue along a valid solution path',
+      reason:
+        step < currentPath.length
+          ? 'Undo to the shared prefix and continue from this step'
+          : step === 0
+            ? 'Start at the first cell'
+            : 'Continue along a valid solution path',
     }
   }
 

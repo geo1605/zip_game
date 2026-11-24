@@ -1,9 +1,5 @@
 import type { LevelClue } from '#models/level'
-import {
-  areOrthogonallyAdjacent,
-  DEFAULT_GRID_SIZE,
-  isValidCell,
-} from '#utils/board_utils'
+import { areOrthogonallyAdjacent, DEFAULT_GRID_SIZE, isValidCell } from '#utils/board_utils'
 
 export interface PathValidationOptions {
   gridSize?: number
@@ -30,10 +26,20 @@ export default class GameValidatorService {
     const boardCellCount = gridSize * gridSize
 
     if (!Array.isArray(path)) {
-      return { isValid: false, isComplete: false, errors: ['Path must be an array'], nextClue: null }
+      return {
+        isValid: false,
+        isComplete: false,
+        errors: ['Path must be an array'],
+        nextClue: null,
+      }
     }
     if (!Array.isArray(clues) || clues.length === 0) {
-      return { isValid: false, isComplete: false, errors: ['Level must contain numbered clues'], nextClue: null }
+      return {
+        isValid: false,
+        isComplete: false,
+        errors: ['Level must contain numbered clues'],
+        nextClue: null,
+      }
     }
 
     const clueByCell = new Map<number, number>()
@@ -104,8 +110,12 @@ export default class GameValidatorService {
     if (path.length > boardCellCount) errors.push('Path contains more cells than the board')
     const isComplete = path.length === boardCellCount && visited.size === boardCellCount
     if (requireComplete && !isComplete) errors.push(`Path must visit all ${boardCellCount} cells`)
-    if (isComplete && expectedClue <= clues.length) errors.push(`Path is missing clue ${expectedClue}`)
-    if (isComplete && path[path.length - 1] !== clues.find((clue) => clue.number === clues.length)?.cell) {
+    if (isComplete && expectedClue <= clues.length)
+      errors.push(`Path is missing clue ${expectedClue}`)
+    if (
+      isComplete &&
+      path[path.length - 1] !== clues.find((clue) => clue.number === clues.length)?.cell
+    ) {
       errors.push(`Path must end at clue ${clues.length}`)
     }
 

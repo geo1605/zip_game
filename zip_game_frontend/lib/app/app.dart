@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+
 import '../features/auth/presentation/controllers/auth_controller.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/home/presentation/pages/home_page.dart';
@@ -17,6 +18,7 @@ class ZipGameApp extends StatefulWidget {
 
 class _ZipGameAppState extends State<ZipGameApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
+  AuthStatus _previousAuthStatus = AuthStatus.unknown;
 
   @override
   void initState() {
@@ -28,7 +30,14 @@ class _ZipGameAppState extends State<ZipGameApp> {
 
   /// Si la sesión expira se regresa a la raíz (login)
   void _onAuthChange() {
-    if (widget.dependencies.authController.status == AuthStatus.unauthenticated) {
+    final status = widget.dependencies.authController.status;
+    final sessionEnded =
+        _previousAuthStatus == AuthStatus.authenticated &&
+        status == AuthStatus.unauthenticated;
+    _previousAuthStatus = status;
+    // Los cambios de loading/error durante el registro no son un cierre
+    // de sesión y no deben sacar al usuario del formulario.
+    if (sessionEnded) {
       _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     }
   }
@@ -55,7 +64,9 @@ class _ZipGameAppState extends State<ZipGameApp> {
           builder: (context, _) {
             switch (widget.dependencies.authController.status) {
               case AuthStatus.unknown:
-                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
               case AuthStatus.unauthenticated:
                 return const LoginPage();
               case AuthStatus.authenticated:
