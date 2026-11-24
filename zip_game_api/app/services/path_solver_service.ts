@@ -161,9 +161,8 @@ export default class PathSolverService {
     if (!Array.isArray(clues) || clues.length < 2) return null
     const ordered = [...clues].sort((a, b) => a.number - b.number)
     if (
-      ordered.some(
-        (clue, index) => clue.number !== index + 1 || !isValidCell(clue.cell, size)
-      ) || new Set(ordered.map((clue) => clue.cell)).size !== ordered.length
+      ordered.some((clue, index) => clue.number !== index + 1 || !isValidCell(clue.cell, size)) ||
+      new Set(ordered.map((clue) => clue.cell)).size !== ordered.length
     ) {
       return null
     }

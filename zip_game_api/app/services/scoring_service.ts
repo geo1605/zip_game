@@ -41,7 +41,10 @@ export default class ScoringService {
     const timePenalty = Math.max(0, duration - target) * 2
     const mistakePenalty = mistakes * MISTAKE_PENALTY
     const hintPenalty = hints * HINT_PENALTY
-    const total = Math.max(Math.round(base * 0.1), base + timeBonus - timePenalty - mistakePenalty - hintPenalty)
+    const total = Math.max(
+      Math.round(base * 0.1),
+      base + timeBonus - timePenalty - mistakePenalty - hintPenalty
+    )
 
     return { base, timeBonus, timePenalty, mistakePenalty, hintPenalty, total }
   }

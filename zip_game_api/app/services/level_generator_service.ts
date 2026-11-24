@@ -60,14 +60,18 @@ export default class LevelGeneratorService {
       throw new RangeError('Grid size must be an integer of at least 2')
     }
 
-    const rng = createRng(options.seed ?? (Date.now() ^ Math.floor(Math.random() * 1e9)))
+    const rng = createRng(options.seed ?? Date.now() ^ Math.floor(Math.random() * 1e9))
     let best: GeneratedLevel | null = null
     let bestDistance = Number.POSITIVE_INFINITY
 
     for (let attempt = 0; attempt < 20; attempt++) {
       const solution = this.randomHamiltonianPath(rng, size)
       const range = CHECKPOINT_RANGE[difficulty]
-      const count = randomInt(rng, Math.min(range[0], solution.length), Math.min(range[1], solution.length))
+      const count = randomInt(
+        rng,
+        Math.min(range[0], solution.length),
+        Math.min(range[1], solution.length)
+      )
       const checkpointCells = this.placeCheckpoints(rng, solution, count, difficulty)
       const board: BoardDefinition = { size, checkpoints: checkpointCells }
       if (!this.validator.validateSolution(board, solution).valid) continue
@@ -144,10 +148,7 @@ export default class LevelGeneratorService {
     } else {
       const turnPositions: number[] = []
       for (let index = 1; index < last; index++) {
-        if (
-          solution[index] - solution[index - 1] !==
-          solution[index + 1] - solution[index]
-        ) {
+        if (solution[index] - solution[index - 1] !== solution[index + 1] - solution[index]) {
           turnPositions.push(index)
         }
       }
@@ -176,7 +177,8 @@ export default class LevelGeneratorService {
     const searchEffort = effortSearch.nodes
     const turns = countTurns(solution)
     const gapPart = Math.min(35, (averageGap / 9) * 35)
-    const decisionPart = solutionCount > 1 ? (Math.log2(solutionCount) / Math.log2(SOLUTION_CAP)) * 25 : 0
+    const decisionPart =
+      solutionCount > 1 ? (Math.log2(solutionCount) / Math.log2(SOLUTION_CAP)) * 25 : 0
     const effortPart = Math.min(25, (Math.log10(searchEffort + 1) / 5) * 25)
     const turnPart = Math.min(15, (turns / 30) * 15)
 

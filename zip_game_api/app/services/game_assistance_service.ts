@@ -55,14 +55,12 @@ export default class GameAssistanceService {
   }
 
   calculateScore(input: ScoreInput): number {
-    return this.scoring
-      .calculate({
-        difficulty: input.difficulty,
-        durationSeconds: input.elapsedSeconds,
-        mistakes: input.mistakesCount,
-        hintsUsed: input.hintsUsed,
-      })
-      .total
+    return this.scoring.calculate({
+      difficulty: input.difficulty,
+      durationSeconds: input.elapsedSeconds,
+      mistakes: input.mistakesCount,
+      hintsUsed: input.hintsUsed,
+    }).total
   }
 
   recommendDifficulty(

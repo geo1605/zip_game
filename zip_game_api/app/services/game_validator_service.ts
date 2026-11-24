@@ -53,9 +53,9 @@ export default class GameValidatorService {
     if (!Array.isArray(path) || path.length === 0) {
       return this.fail('EMPTY_PATH', 'The path is empty', 0, 1)
     }
-    for (let index = 0; index < path.length; index++) {
-      if (!isValidCell(path[index], board.size)) {
-        return this.fail('OUT_OF_BOUNDS', `Cell ${path[index]} is outside the board`, index, 1)
+    for (const [index, cell] of path.entries()) {
+      if (!isValidCell(cell, board.size)) {
+        return this.fail('OUT_OF_BOUNDS', `Cell ${cell} is outside the board`, index, 1)
       }
     }
     if (path[0] !== board.checkpoints[0]) {
