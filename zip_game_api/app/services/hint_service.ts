@@ -47,14 +47,14 @@ export default class HintService {
       return { status: 'next', nextCell: storedSolution[path.length], undoSteps: 0 }
     }
 
-    const continuation = this.solver.hasSolution(board, path, 60_000)
+    const continuation = this.solver.findSolution(board, path, 60_000)
     if (continuation) {
       return { status: 'next', nextCell: continuation[path.length], undoSteps: 0 }
     }
 
     for (let keep = path.length - 1; keep > commonPrefix; keep--) {
       const prefix = path.slice(0, keep)
-      const solution = this.solver.hasSolution(board, prefix, 20_000)
+      const solution = this.solver.findSolution(board, prefix, 20_000)
       if (solution) {
         return {
           status: 'backtrack',

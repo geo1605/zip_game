@@ -134,9 +134,21 @@ export default class PathSolverService {
     return { solutions, nodes: Math.min(nodes, maxNodes), exhausted: !aborted }
   }
 
-  hasSolution(board: BoardDefinition, prefix?: number[], maxNodes?: number): number[] | null
-  hasSolution(clues: LevelClue[], options?: FindSolutionOptions): number[] | null
+  hasSolution(board: BoardDefinition, prefix?: number[], maxNodes?: number): boolean
+  hasSolution(clues: LevelClue[], options?: FindSolutionOptions): boolean
   hasSolution(
+    boardOrClues: BoardDefinition | LevelClue[],
+    prefixOrOptions: number[] | FindSolutionOptions = [],
+    maxNodes = 500_000
+  ): boolean {
+    return Array.isArray(boardOrClues)
+      ? this.findSolution(boardOrClues, prefixOrOptions as FindSolutionOptions) !== null
+      : this.findSolution(boardOrClues, prefixOrOptions as number[], maxNodes) !== null
+  }
+
+  findSolution(board: BoardDefinition, prefix?: number[], maxNodes?: number): number[] | null
+  findSolution(clues: LevelClue[], options?: FindSolutionOptions): number[] | null
+  findSolution(
     boardOrClues: BoardDefinition | LevelClue[],
     prefixOrOptions: number[] | FindSolutionOptions = [],
     maxNodes = 500_000
@@ -151,10 +163,6 @@ export default class PathSolverService {
       ? maxNodes
       : ((prefixOrOptions as FindSolutionOptions).maxNodes ?? maxNodes)
     return this.solve(board, prefix, { maxNodes: limit, maxSolutions: 1 }).solutions[0] ?? null
-  }
-
-  findSolution(clues: LevelClue[], options: FindSolutionOptions = {}): number[] | null {
-    return this.hasSolution(clues, options)
   }
 
   private fromClues(clues: LevelClue[], size = DEFAULT_GRID_SIZE): BoardDefinition | null {
