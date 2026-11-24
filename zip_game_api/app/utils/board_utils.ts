@@ -1,5 +1,15 @@
 /** Board and cell helpers shared by the game services. Cell indices are row-major. */
 export const DEFAULT_GRID_SIZE = 6
+export const BOARD_SIZE = DEFAULT_GRID_SIZE
+export const TOTAL_CELLS = BOARD_SIZE * BOARD_SIZE
+export type Difficulty = 'easy' | 'medium' | 'hard'
+export const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard']
+
+export interface BoardDefinition {
+  size: number
+  /** Index i contains the cell with checkpoint number i + 1. */
+  checkpoints: number[]
+}
 
 export interface BoardPosition {
   row: number
@@ -21,6 +31,14 @@ export function cellToPosition(cell: number, gridSize = DEFAULT_GRID_SIZE): Boar
   }
 
   return { row: Math.floor(cell / gridSize), column: cell % gridSize }
+}
+
+export function rowOf(cell: number, gridSize = DEFAULT_GRID_SIZE): number {
+  return cellToPosition(cell, gridSize).row
+}
+
+export function colOf(cell: number, gridSize = DEFAULT_GRID_SIZE): number {
+  return cellToPosition(cell, gridSize).column
 }
 
 export function positionToCell(position: BoardPosition, gridSize = DEFAULT_GRID_SIZE): number {
@@ -49,6 +67,8 @@ export function getOrthogonalNeighbors(cell: number, gridSize = DEFAULT_GRID_SIZ
   return neighbors
 }
 
+export const neighbors = getOrthogonalNeighbors
+
 export function areOrthogonallyAdjacent(
   first: number,
   second: number,
@@ -58,6 +78,22 @@ export function areOrthogonallyAdjacent(
   const a = cellToPosition(first, gridSize)
   const b = cellToPosition(second, gridSize)
   return Math.abs(a.row - b.row) + Math.abs(a.column - b.column) === 1
+}
+
+export const areAdjacent = areOrthogonallyAdjacent
+
+export function countTurns(path: number[]): number {
+  let turns = 0
+  for (let index = 2; index < path.length; index++) {
+    const previousStep = path[index - 1] - path[index - 2]
+    const currentStep = path[index] - path[index - 1]
+    if (previousStep !== currentStep) turns++
+  }
+  return turns
+}
+
+export function checkpointMap(board: BoardDefinition): Map<number, number> {
+  return new Map(board.checkpoints.map((cell, index) => [cell, index + 1] as const))
 }
 
 export function isValidMove(move: BoardMove, gridSize = DEFAULT_GRID_SIZE): boolean {
