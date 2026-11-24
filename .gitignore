@@ -1,0 +1,30 @@
+proyecto.md
+
+# Variables de entorno y secretos
+.env
+.env.test
+.env.local
+.env.*.local
+**/.env
+**/.env.test
+**/.env.local
+**/.env.*.local
+
+# Dependencias y artefactos de compilación
+node_modules/
+**/node_modules/
+build/
+**/build/
+tmp/
+**/tmp/
+
+# Logs y sistema operativo
+npm-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+
+# Editores
+.idea/
+.fleet/
+.vscode/
