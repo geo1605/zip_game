@@ -113,4 +113,12 @@ export default class GameSessionRepository {
       .orderBy('finished_at', 'desc')
       .limit(limit)
   }
+
+  async findRecentByUser(userId: number, limit = 10): Promise<GameSession[]> {
+    return GameSession.query()
+      .where('user_id', userId)
+      .preload('level')
+      .orderBy('started_at', 'desc')
+      .limit(limit)
+  }
 }

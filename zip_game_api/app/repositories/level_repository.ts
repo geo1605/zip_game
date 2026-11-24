@@ -57,6 +57,29 @@ export default class LevelRepository {
     return Level.find(id)
   }
 
+  async findByIdWithUserStatus(id: number, userId: number): Promise<LevelWithStatus | null> {
+    const level = await this.findById(id)
+    if (!level) {
+      return null
+    }
+
+    const bestScore = await db
+      .from('scores')
+      .where('user_id', userId)
+      .where('level_id', level.id)
+      .max('points as best_points')
+      .first()
+
+    const rawBest = bestScore?.best_points
+    const hasScore = rawBest !== null && rawBest !== undefined
+
+    return {
+      level,
+      completed: hasScore,
+      bestPoints: hasScore ? Number(rawBest) : null,
+    }
+  }
+
   async create(data: CreateLevelData): Promise<Level> {
     return Level.create({
       name: data.name,
