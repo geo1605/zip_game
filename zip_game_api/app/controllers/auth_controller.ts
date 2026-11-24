@@ -1,19 +1,23 @@
+import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
+import GameException from '#exceptions/game_exception'
 import User from '#models/user'
 import UserRepository from '#repositories/user_repository'
 import { loginValidator, registerValidator } from '#validators/auth_validator'
 import { serializeUser } from '#utils/serializers'
 
+@inject()
 export default class AuthController {
-  private readonly userRepository = new UserRepository()
+  constructor(private readonly userRepository: UserRepository) {}
 
   async register({ request, response }: HttpContext) {
     const payload = await request.validateUsing(registerValidator)
 
     const existingUser = await this.userRepository.findByEmail(payload.email)
     if (existingUser) {
-      return response.conflict({
-        message: 'Email is already registered',
+      throw new GameException('Email is already registered', {
+        status: 409,
+        code: 'E_EMAIL_EXISTS',
       })
     }
 
@@ -27,8 +31,9 @@ export default class AuthController {
         'code' in error &&
         error.code === 'ER_DUP_ENTRY'
       ) {
-        return response.conflict({
-          message: 'Email is already registered',
+        throw new GameException('Email is already registered', {
+          status: 409,
+          code: 'E_EMAIL_EXISTS',
         })
       }
       throw error
@@ -55,8 +60,9 @@ export default class AuthController {
     try {
       user = await User.verifyCredentials(payload.email, payload.password)
     } catch {
-      return response.unauthorized({
-        message: 'Invalid credentials',
+      throw new GameException('Invalid credentials', {
+        status: 401,
+        code: 'E_INVALID_CREDENTIALS',
       })
     }
 
