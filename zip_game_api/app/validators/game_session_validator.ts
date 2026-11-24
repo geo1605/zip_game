@@ -4,7 +4,7 @@ const cellIndexSchema = vine.number().withoutDecimals().min(0).max(63)
 
 export const createGameSessionValidator = vine.compile(
   vine.object({
-    levelId: vine.number().withoutDecimals().positive(),
+    levelId: vine.number().withoutDecimals().min(1),
   })
 )
 

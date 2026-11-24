@@ -2,7 +2,7 @@ import vine from '@vinejs/vine'
 
 export const idParamValidator = vine.compile(
   vine.object({
-    id: vine.number().withoutDecimals().positive(),
+    id: vine.number().withoutDecimals().min(1),
   })
 )
 

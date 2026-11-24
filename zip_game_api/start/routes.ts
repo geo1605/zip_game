@@ -13,6 +13,8 @@ import { middleware } from '#start/kernel'
 const AuthController = () => import('#controllers/auth_controller')
 const LevelsController = () => import('#controllers/levels_controller')
 const GameSessionsController = () => import('#controllers/game_sessions_controller')
+const ProfileController = () => import('#controllers/profile_controller')
+const LeaderboardController = () => import('#controllers/leaderboard_controller')
 
 router.get('/', async () => {
   return {
@@ -53,5 +55,9 @@ router
       })
       .prefix('/sessions')
       .use(middleware.auth())
+
+    router.get('/profile', [ProfileController, 'show']).use(middleware.auth())
+    router.get('/history', [ProfileController, 'history']).use(middleware.auth())
+    router.get('/leaderboard', [LeaderboardController, 'index']).use(middleware.auth())
   })
   .prefix('/api')
