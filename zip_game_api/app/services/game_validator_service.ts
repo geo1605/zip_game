@@ -64,7 +64,6 @@ export default class GameValidatorService {
 
     const cellsByCheckpoint = checkpointMap(board)
     const lastNumber = board.checkpoints.length
-    const lastCell = board.checkpoints[lastNumber - 1]
     const visited = new Set<number>()
     let nextCheckpoint = 1
 

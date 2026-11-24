@@ -134,7 +134,7 @@ export default class PathSolverService {
     return { solutions, nodes: Math.min(nodes, maxNodes), exhausted: !aborted }
   }
 
-  hasSolution(board: BoardDefinition, prefix: number[] = [], maxNodes = 500_000): number[] | null
+  hasSolution(board: BoardDefinition, prefix?: number[], maxNodes?: number): number[] | null
   hasSolution(clues: LevelClue[], options?: FindSolutionOptions): number[] | null
   hasSolution(
     boardOrClues: BoardDefinition | LevelClue[],
