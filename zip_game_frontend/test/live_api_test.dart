@@ -53,7 +53,7 @@ void main() {
           mistakesCount: 0,
         );
         expect(score.hintsUsed, 36);
-        expect(score.points, 0); // 36 pistas superan la base de 1000 puntos.
+        expect(score.points, 100); // Piso mínimo del 10% de la base (1000 * 0.1 = 100).
         final saved = await games.getSession(session.id);
         expect(saved.status, SessionStatus.completed);
         expect(saved.score?.id, score.id);

@@ -1,11 +1,15 @@
 import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
+import GameException from '#exceptions/game_exception'
 import type User from '#models/user'
 import type Level from '#models/level'
+import AdaptiveDifficultyService from '#services/adaptive_difficulty_service'
 import GameValidatorService from '#services/game_validator_service'
 import GameAssistanceService from '#services/game_assistance_service'
+import HintService from '#services/hint_service'
 import LevelGeneratorService from '#services/level_generator_service'
 import PathSolverService from '#services/path_solver_service'
+import ScoringService from '#services/scoring_service'
 import { serializeLevel, serializeUser } from '#utils/serializers'
 
 test.group('Game services and serializers', () => {
@@ -14,7 +18,7 @@ test.group('Game services and serializers', () => {
     const validator = new GameValidatorService()
     const solver = new PathSolverService()
 
-    const generated = generator.generate('medium', { gridSize: 4 })
+    const generated = generator.generate('medium', { gridSize: 4, seed: 42 })
     const validation = validator.validatePath(generated.solution, generated.clues, {
       gridSize: 4,
       requireComplete: true,
@@ -25,8 +29,11 @@ test.group('Game services and serializers', () => {
     assert.isTrue(solver.hasSolution(generated.clues, { gridSize: 4 }))
   })
 
-  test('GameAssistanceService calculates server-side scores and hints accurately', ({ assert }) => {
+  test('GameAssistanceService and ScoringService calculate server-side scores accurately', ({
+    assert,
+  }) => {
     const assistance = new GameAssistanceService()
+    const scoring = new ScoringService()
 
     const easyScore = assistance.calculateScore({
       difficulty: 'easy',
@@ -35,6 +42,14 @@ test.group('Game services and serializers', () => {
       hintsUsed: 1,
     })
     assert.equal(easyScore, 1000 + 70 * 3 - 2 * 25 - 150)
+
+    const mediumBreakdown = scoring.calculate({
+      difficulty: 'medium',
+      durationSeconds: 200,
+      mistakes: 4,
+      hintsUsed: 2,
+    })
+    assert.equal(mediumBreakdown.total, 2000 - 20 * 2 - 4 * 25 - 2 * 150)
 
     const hardScore = assistance.calculateScore({
       difficulty: 'hard',
@@ -58,6 +73,47 @@ test.group('Game services and serializers', () => {
       step: 3,
       reason: 'Continue along a valid solution path',
     })
+  })
+
+  test('HintService suggests next move and AdaptiveDifficultyService adjusts difficulty', ({
+    assert,
+  }) => {
+    const generator = new LevelGeneratorService()
+    const hints = new HintService()
+    const adaptive = new AdaptiveDifficultyService()
+
+    const level = generator.generate('medium', { seed: 4242 })
+    const board = {
+      size: level.gridSize,
+      checkpoints: level.clues.map((clue) => clue.cell),
+    }
+
+    const startHint = hints.getHint(board, level.solution, [])
+    assert.deepEqual(startHint, { status: 'next', nextCell: board.checkpoints[0], undoSteps: 0 })
+
+    const nextHint = hints.getHint(board, level.solution, level.solution.slice(0, 5))
+    assert.deepEqual(nextHint, { status: 'next', nextCell: level.solution[5], undoSteps: 0 })
+
+    const invalidHint = hints.getHint(board, level.solution, [level.solution[0], 99])
+    assert.equal(invalidHint.status, 'invalid')
+
+    const fast = { difficulty: 'easy' as const, durationSeconds: 50, mistakes: 0, hintsUsed: 0 }
+    const slow = { difficulty: 'medium' as const, durationSeconds: 500, mistakes: 12, hintsUsed: 3 }
+    assert.equal(adaptive.decide('easy', [fast, fast]).recommended, 'medium')
+    assert.equal(adaptive.decide('medium', [slow, slow]).recommended, 'easy')
+    assert.equal(adaptive.decide('easy', [fast]).change, 'keep')
+  })
+
+  test('GameException carries HTTP status, code, and optional details', ({ assert }) => {
+    const exception = new GameException('Game session not found', {
+      status: 404,
+      code: 'E_SESSION_NOT_FOUND',
+      details: { sessionId: 99 },
+    })
+
+    assert.equal(exception.status, 404)
+    assert.equal(exception.code, 'E_SESSION_NOT_FOUND')
+    assert.deepEqual(exception.details, { sessionId: 99 })
   })
 
   test('serializers never expose user password or level solution', ({ assert }) => {

@@ -71,6 +71,8 @@ test.group('Game Sessions API', (group) => {
       .json({ path: [0, 1, 2] })
     hintResponse.assertStatus(200)
     assert.equal(hintResponse.body().data.hint.cell, 3)
+    assert.equal(hintResponse.body().data.hint.step, 4)
+    assert.equal(hintResponse.body().data.hint.status, 'next')
     assert.equal(hintResponse.body().data.hintsUsed, 1)
 
     const invalidComplete = await client
@@ -78,6 +80,7 @@ test.group('Game Sessions API', (group) => {
       .bearerToken(token)
       .json({ path: [0, 1, 2, 3] })
     invalidComplete.assertStatus(422)
+    assert.equal(invalidComplete.body().code, 'E_INCOMPLETE')
     assert.equal(invalidComplete.body().mistakesCount, 2)
 
     const completeResponse = await client
@@ -95,23 +98,25 @@ test.group('Game Sessions API', (group) => {
     assert.equal(completed.session.status, 'completed')
     assert.equal(completed.score.mistakesCount, 2)
     assert.equal(completed.score.hintsUsed, 1)
-    const expectedPoints = new ScoringService().calculate({
+    const expectedBreakdown = new ScoringService().calculate({
       difficulty: 'medium',
       durationSeconds: completed.score.elapsedSeconds,
       mistakes: completed.score.mistakesCount,
       hintsUsed: completed.score.hintsUsed,
-    }).total
-    assert.equal(completed.score.points, expectedPoints)
+    })
+    assert.equal(completed.score.points, expectedBreakdown.total)
+    assert.equal(completed.breakdown.base, 2000)
 
     const persistedScore = await Score.findByOrFail('gameSessionId', sessionId)
     assert.equal(persistedScore.userId, user.id)
-    assert.equal(persistedScore.points, expectedPoints)
+    assert.equal(persistedScore.points, expectedBreakdown.total)
 
     const duplicateComplete = await client
       .post(`/api/sessions/${sessionId}/complete`)
       .bearerToken(token)
       .json({ path: SAMPLE_4X4_SOLUTION })
     duplicateComplete.assertStatus(409)
+    assert.equal(duplicateComplete.body().code, 'E_ALREADY_FINISHED')
   })
 
   test('enforces session ownership and supports abandoning active sessions', async ({
@@ -137,6 +142,7 @@ test.group('Game Sessions API', (group) => {
 
     const stolenRead = await client.get(`/api/sessions/${sessionId}`).bearerToken(intruder.token)
     stolenRead.assertStatus(404)
+    assert.equal(stolenRead.body().code, 'E_SESSION_NOT_FOUND')
 
     const stolenMove = await client
       .post(`/api/sessions/${sessionId}/moves`)

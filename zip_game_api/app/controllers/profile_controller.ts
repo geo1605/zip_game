@@ -1,3 +1,4 @@
+import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { LevelDifficulty } from '#models/level'
 import UserRepository from '#repositories/user_repository'
@@ -6,10 +7,13 @@ import AdaptiveDifficultyService from '#services/adaptive_difficulty_service'
 import { limitQueryValidator } from '#validators/common_validator'
 import { serializeGameSession, serializeUser } from '#utils/serializers'
 
+@inject()
 export default class ProfileController {
-  private readonly userRepository = new UserRepository()
-  private readonly gameSessionRepository = new GameSessionRepository()
-  private readonly adaptiveDifficultyService = new AdaptiveDifficultyService()
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly gameSessionRepository: GameSessionRepository,
+    private readonly adaptiveDifficultyService: AdaptiveDifficultyService
+  ) {}
 
   async show({ auth, response }: HttpContext) {
     const user = auth.getUserOrFail()
